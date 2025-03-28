@@ -1,7 +1,7 @@
-
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { toast } from "sonner";
 import { Product } from "@/types/product";
+import { useAuth } from "./AuthContext";
 
 type CartItem = {
   product: Product;
@@ -21,41 +21,43 @@ type CartContextType = {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
   const [items, setItems] = useState<CartItem[]>([]);
 
-  // Load cart from localStorage on initial load
+  const getCartKey = () => `cart_${user?.id || 'guest'}`;
+
+  // Load cart from localStorage on initial load or when user changes
   useEffect(() => {
-    const savedCart = localStorage.getItem("cart");
+    const savedCart = localStorage.getItem(getCartKey());
     if (savedCart) {
       try {
         setItems(JSON.parse(savedCart));
       } catch (e) {
         console.error("Failed to parse cart from localStorage", e);
       }
+    } else {
+      setItems([]);
     }
-  }, []);
+  }, [user?.id]);
 
-  // Save cart to localStorage whenever it changes
+  // Save cart to localStorage whenever it changes or user changes
   useEffect(() => {
-    localStorage.setItem("cart", JSON.stringify(items));
-  }, [items]);
+    localStorage.setItem(getCartKey(), JSON.stringify(items));
+  }, [items, user?.id]);
 
   const addToCart = (product: Product, quantity = 1) => {
     setItems(prevItems => {
-      // Check if the item is already in the cart
       const existingItemIndex = prevItems.findIndex(
         item => item.product.id === product.id
       );
 
       if (existingItemIndex >= 0) {
-        // Item exists, update quantity
         const newItems = [...prevItems];
         newItems[existingItemIndex].quantity += quantity;
-        toast.success(`Added ${quantity} more to cart`);
+        toast.success(`Adicionado ${quantity} mais ao carrinho`);
         return newItems;
       } else {
-        // Item doesn't exist, add it
-        toast.success(`${product.name} added to cart`);
+        toast.success(`${product.name} adicionado ao carrinho`);
         return [...prevItems, { product, quantity }];
       }
     });
@@ -64,7 +66,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const removeFromCart = (productId: string) => {
     setItems(prevItems => {
       const newItems = prevItems.filter(item => item.product.id !== productId);
-      toast.info("Item removed from cart");
+      toast.info("Item removido do carrinho");
       return newItems;
     });
   };
@@ -88,7 +90,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const clearCart = () => {
     setItems([]);
-    toast.info("Cart cleared");
+    toast.info("Carrinho limpo");
   };
 
   const totalItems = items.reduce((total, item) => total + item.quantity, 0);
